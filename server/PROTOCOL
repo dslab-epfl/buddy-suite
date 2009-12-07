@@ -1,0 +1,159 @@
+==== Client States ====
+ 1) Init:       When logged out
+ 2) Logged:     When logged to the server but not playing
+
+
+==== Arguments types ====
+username: String representing a username uniquely identifying a student. Each student
+          can only be simultaneously logged once on the server.
+
+challenge: a 52 chars long hex representation of a sha1() hash composed of the actual
+           password and the salt provided by the server.
+
+msg: A plain string explaining why the nack occured
+
+white,
+black,
+timers: The number of seconds in the clocks
+
+from,
+to: chess positions in algebraid notation (e.g. b4)
+
+promotion: a capital letter indicating the piece type
+           (R: rook, N: Knight, Q: queen, B: Bishop)
+
+salt: a string generated randomly for each server connections
+
+winner: The color of the winner "white"/"black"
+
+logged: Whether the user is currently logged in (yes/no)
+
+==== Server Commands ====
+
+=== Status: Init ===
+command:     <auth><login username=".." challenge=".." /></auth>
+reply:       <auth><ack /> / <nack msg=".." /></auth>
+status:      Init => Logged
+description: challenge is sha1(sha1(password)+salt). salt is transmitted by the server
+             within the <hello> command
+
+
+=== Status: Logged ===
+command:    <auth><logout /></auth>
+reply:      <auth><ack /> / <nack msg=".." /></auth>
+status:     Logged => Init
+
+command:    <chess username=".."><create timers=".." /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    The server will then send a <chess username=".."><invite timers=".." /></games> to the player
+
+command:    <chess username=".."><inviteaccept /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    The server will then send a <chess username=".."><inviteaccept /></games> to the host
+
+command:    <chess username=".."><invitedecline /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    The server will then send a <chess username=".."><invitedecline /></games> to the host
+
+command:    <chess username=".."><timers /></chess>
+out:        <chess username=".."><timers white=".." black=".." /></chess>
+
+command:    <chess username=".."><move from=".." to=".."/></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+
+command:    <chess username=".."><movepromote from=".." to=".." promotion=".."/></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+
+command:    <chess username=".."><drawask /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    If a draw can be requested (not enought material for checkmate, 50 moves
+            rules or 3 similar conditions) the draw will be accepted without asking
+            the opponent.
+
+command:    <chess username=".."><drawaccept /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    You can only accept a draw immediately after recieving a draw request
+
+command:    <chess username=".."><drawdecline /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+comment:    You can only decline a draw immediately after recieving a draw request
+
+command:    <chess username=".."><resign /></chess>
+reply:      <chess username=".."><ack /> / <nack msg=".." /></chess>
+
+==== Replies received from the server ====
+
+=== On connection: ===
+
+    <hello salt=".." />
+
+=== When hosting a game: ===
+When you host, you'll receive a notification once the opponent accepts or rejects
+your invitation, if he accepts, the game automatically starts:
+
+    <chess username=".."><inviteaccept /></chess>
+or:
+    <chess username=".."><invitedecline /></chess>
+
+=== Being invited ===
+Whenever somebody creates a game with you, you'll receive an invitation looking like:
+    <chess username=".."><invite timers=".."/></chess>
+
+
+You need to reply with:
+
+    <chess username=".."><inviteaccept /></chess>
+or:
+    <chess username=".."><invitedecline /></chess>
+
+=== When playing a game: ===
+You'll receive a notification of the opponents moves and actions:
+
+    <chess username=".."><move from=".." to=".."/></chess>
+    <chess username=".."><movepromote from=".." to=".." promotion=".."/></chess>
+    <chess username=".."><drawask /></chess>
+    <chess username=".."><drawdecline /></chess>
+
+On game end:
+
+    <chess username=".."><end winner=".." /></chess>
+    <chess username=".."><draw /></chess>
+
+==== Chatting ====
+You can chat when logged or playing.
+
+command:    <chat username=".."><msg>..</msg></chat>
+reply:      <chat username=".."><ack /> / <nack msg=".." /></chat>
+
+Received from server when somebody writes to you:
+
+    <chat username=".."><msg>..</msg></chat>
+
+==== GPS ====
+Register your current position:
+
+command:    <gps><register long=".." lat=".." /></gps>
+reply:      <gps><ack /> /<nack msg=".." /></gps>
+
+Retrieve others position:
+
+command:    <gps><get username=".." /></gps>
+reply:      <gps><position username=".." long=".." lat=".." logged=".." /></gps>
+reply:      <gps><position username=".." long="N/A" lat="N/A" logged="no" /></gps>
+
+
+==== Protocol Extensions ====
+
+You can extend the protocol with your own commands. Simply send
+
+    <[maintag] username="[target]">[content]</[maintag]>
+
+and the server will translate it to:
+
+    <[maintag] username="[source]">[content]</[maintag]>
+
+and send it to [target]. You will then receive either
+
+    <[maintag] username="[target]"><ack /></[maintag]>
+or
+    <[maintag] username="[target]"><nack msg=".." /></[maintag]>
